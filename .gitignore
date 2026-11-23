@@ -1,0 +1,14 @@
+# data, weights and outputs are not versioned (licences / professor's test set / size)
+data/*
+!data/sources.csv
+runs/
+results/
+figures/
+sheets/
+*.pt
+*.pth
+*.zip
+__pycache__/
+.ipynb_checkpoints/
+*.aux
+*.log

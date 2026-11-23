@@ -1,0 +1,9 @@
+# Kaggle and Colab already ship torch, numpy, opencv, scikit-image, matplotlib, tqdm.
+# Install the rest with:   pip install -r requirements.txt
+segmentation-models-pytorch
+timm
+lpips
+requests
+# Pretrained LaMa is installed separately (it must be --no-deps, which requirements files can't express):
+#   pip install simple-lama-inpainting --no-deps
+# Optional, only for --sr:  pip install realesrgan basicsr   (see README)
