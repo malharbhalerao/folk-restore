@@ -1,4 +1,4 @@
-"""Step 4: Milestone 1 + 2 numbers on the fixed synthetic TEST set.
+"""Milestone 1 + 2 numbers on the fixed synthetic TEST set.
 
 Segmentation: Dice per class + union.
 Inpainting  : Telea vs pretrained LaMa, with ORACLE masks (ground truth) and PREDICTED masks (our U-Net),
@@ -15,7 +15,7 @@ import torch
 from skimage.metrics import structural_similarity
 from tqdm import tqdm
 
-from common import (CLASSES, composite, dice_np, dilate_mask, imread_rgb, imwrite_gray, imwrite_rgb,
+from folk_restore import (CLASSES, composite, dice_np, dilate_mask, imread_rgb, imwrite_gray, imwrite_rgb,
                     infill_mask, load_model, segment_image, telea, try_lama)
 
 
@@ -69,7 +69,7 @@ def main():
     idx = {r["tile_id"]: r for r in csv.DictReader(open(folder / "index.csv"))}
     ids = list(idx)[:a.n]
     if not ids:
-        raise SystemExit("No synthetic test tiles. Run 02_make_synthetic.py first.")
+        raise SystemExit("No synthetic test tiles. Run scripts/data/make_synthetic.py first.")
 
     rows, seg_inter, seg_p, seg_g = [], np.zeros(3), np.zeros(3), np.zeros(3)
     union_dice = []

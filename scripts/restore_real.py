@@ -1,7 +1,7 @@
-"""Step 5: run the full pipeline on whole images (real damaged paintings).
+"""run the full pipeline on whole images (real damaged paintings).
 
-    python 05_restore_real.py --input_dir data/real_damaged
-Optional: --defade_model runs/defade/best.pt (step 8), --sr 2 (Real-ESRGAN, see README).
+    python scripts/restore_real.py --input_dir data/real_damaged
+Optional: --defade_model runs/defade/best.pt (scripts/train/defade.py), --sr 2 (Real-ESRGAN, see README).
 
 Outputs per image (in --out):
   <name>_input.png  <name>_mask.png  <name>_unc.png  <name>_telea.png  <name>_lama.png
@@ -15,7 +15,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from common import (composite, defade_image, imread_rgb, load_defade, imwrite_gray, imwrite_rgb, infill_mask, list_images, load_model,
+from folk_restore import (composite, defade_image, imread_rgb, load_defade, imwrite_gray, imwrite_rgb, infill_mask, list_images, load_model,
                     resize_long_side, reinhard, segment_image, telea, try_lama, upscale)
 
 

@@ -1,4 +1,4 @@
-"""Step 1: raw images -> deduplicated, split-by-image, 512x512 tiles + manifest.csv
+"""raw images -> deduplicated, split-by-image, 512x512 tiles + manifest.csv
 
 Expected input layout (either works):
     data/raw/<style>/*.jpg      e.g. data/raw/madhubani/..., data/raw/warli/...
@@ -13,7 +13,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from common import imread_rgb, imwrite_rgb, list_images
+from folk_restore import imread_rgb, imwrite_rgb, list_images
 
 
 def dhash(rgb):

@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "folk-restore"
+version = "0.2.0"
+description = "Digital restoration of Indian folk paintings: damage segmentation, inpainting, de-fading, super-resolution and confidence maps"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy", "opencv-python", "scikit-image", "matplotlib", "tqdm", "requests", "pillow",
+  "torch", "torchvision", "segmentation-models-pytorch", "timm", "lpips",
+]
+
+[tool.setuptools]
+packages = ["folk_restore"]

@@ -1,9 +1,9 @@
 """Step 0b: add images you gathered yourself (a Kaggle input dataset, a folder of manual downloads) to data/raw/.
 
     # everything in the folder is one style:
-    python 00b_ingest_folder.py --src /kaggle/input/some-madhubani-dataset --style madhubani --source_name kaggle-xyz --license "see dataset page"
+    python scripts/data/ingest.py --src /kaggle/input/some-madhubani-dataset --style madhubani --source_name kaggle-xyz --license "see dataset page"
     # style guessed from sub-folder / file names containing madhubani, warli, pattachitra, kalamkari:
-    python 00b_ingest_folder.py --src /kaggle/input/indian-paintings --auto_style --source_name kaggle-abc
+    python scripts/data/ingest.py --src /kaggle/input/indian-paintings --auto_style --source_name kaggle-abc
 
 Files are COPIED (the source stays untouched) with collision-proof names, and logged in data/sources.csv.
 """
@@ -12,7 +12,7 @@ import hashlib
 import shutil
 from pathlib import Path
 
-from common import STYLES, append_sources, list_images
+from folk_restore import STYLES, append_sources, list_images
 
 
 def guess_style(path):

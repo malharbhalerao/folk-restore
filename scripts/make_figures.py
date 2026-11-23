@@ -1,8 +1,8 @@
-"""Step 7: slide-ready panels. Looks for files named <stem>_<suffix>.png in a folder and lines them up.
+"""slide-ready panels. Looks for files named <stem>_<suffix>.png in a folder and lines them up.
 
-    python 07_make_figures.py --dir results/samples --out figures/synthetic     # step-4 samples
-    python 07_make_figures.py --dir results/real    --out figures/real          # step-5 outputs
-    python 07_make_figures.py --dir results/defade_samples --out figures/defade # step-6 samples
+    python scripts/make_figures.py --dir results/samples --out figures/synthetic     # step-4 samples
+    python scripts/make_figures.py --dir results/real    --out figures/real          # step-5 outputs
+    python scripts/make_figures.py --dir results/defade_samples --out figures/defade # step-6 samples
 """
 import argparse
 from pathlib import Path

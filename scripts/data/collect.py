@@ -1,7 +1,7 @@
 """Step 0: collect an open-licence dataset of Indian folk paintings from public museum / Commons APIs.
 
-    python 00_collect_dataset.py find-categories --term Madhubani      # (optional) discover Commons category names
-    python 00_collect_dataset.py collect --contact you@example.com     # download into data/raw/<style>/
+    python scripts/data/collect.py find-categories --term Madhubani      # (optional) discover Commons category names
+    python scripts/data/collect.py collect --contact you@example.com     # download into data/raw/<style>/
 
 Sources (all free, no API key):  Wikimedia Commons, The Met (public domain only), Cleveland Museum of Art (CC0 only),
 Art Institute of Chicago (public domain only).  Every file is logged with its licence in data/sources.csv.
@@ -18,7 +18,7 @@ from pathlib import Path
 import cv2
 import requests
 
-from common import append_sources, list_images
+from folk_restore import append_sources, list_images
 
 STYLES = {
     "madhubani": {
@@ -358,7 +358,7 @@ def cmd_collect(a):
             by[p.name.split("_")[0]] += 1
         print(f"  {style:12s} total {sum(by.values()):4d}   {dict(by)}")
     print(f"\nprovenance + licences: {col.meta}")
-    print("Next: look at the images (00c_contact_sheet.py), move 5-10 damaged ones to data/real_damaged, then run step 1.")
+    print("Next: look at the images (scripts/data/contact_sheet.py), move 5-10 damaged ones to data/real_damaged, then run step 1.")
 
 
 def main():

@@ -1,10 +1,10 @@
-"""Step 9: segmenter comparison (v1 vs v2) on synthetic test and test_hard.
+"""segmenter comparison (v1 vs v2) on synthetic test and test_hard.
 
 Reports Dice per class / union (on tiles with damage) and the false-alarm rate on damage-free tiles
 (mean fraction of pixels flagged; this is the metric that tracks 'design lines erased as damage').
 Bootstrap 95% CIs over tiles.
 
-    python 09_eval_seg.py --ckpts runs/unet_rich/best.pt runs/unet_v2_s0/best.pt --sets test test_hard
+    python scripts/eval/segmenter.py --ckpts runs/unet_rich/best.pt runs/unet_v2_s0/best.pt --sets test test_hard
 """
 import argparse
 import csv
@@ -15,7 +15,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from common import CLASSES, dice_np, imread_rgb, infill_mask, load_model, segment_image
+from folk_restore import CLASSES, dice_np, imread_rgb, infill_mask, load_model, segment_image
 
 
 def boot(x, n=1000, seed=0):

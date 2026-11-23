@@ -1,9 +1,9 @@
-"""Step 3: train the damage segmenter (U-Net, ResNet-34 encoder) on on-the-fly synthetic damage.
+"""train the damage segmenter (U-Net, ResNet-34 encoder) on on-the-fly synthetic damage.
 
 Examples:
-    python 03_train_unet.py                       # main model (RGB + CLAHE-L + black-hat input)
-    python 03_train_unet.py --mode rgb --name unet_rgb    # ablation: plain RGB input
-    python 03_train_unet.py --epochs 1 --samples_per_epoch 64 --no_pretrained   # smoke test
+    python scripts/train/segmenter.py                       # main model (RGB + CLAHE-L + black-hat input)
+    python scripts/train/segmenter.py --mode rgb --name unet_rgb    # ablation: plain RGB input
+    python scripts/train/segmenter.py --epochs 1 --samples_per_epoch 64 --no_pretrained   # smoke test
 """
 import argparse
 import csv
@@ -16,8 +16,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 
-from common import CLASSES, build_model, features, imread_rgb
-from degrade import degrade, degrade_v2
+from folk_restore import CLASSES, build_model, features, imread_rgb
+from folk_restore.degrade import degrade, degrade_v2
 
 
 class TrainDS(Dataset):

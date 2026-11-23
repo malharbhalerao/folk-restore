@@ -13,7 +13,7 @@ import numpy as np
 from skimage.color import deltaE_ciede2000, rgb2lab
 from tqdm import tqdm
 
-from common import imread_rgb, imwrite_rgb, lab_stats, reinhard
+from folk_restore import imread_rgb, imwrite_rgb, lab_stats, reinhard
 
 
 def main():

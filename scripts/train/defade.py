@@ -1,11 +1,11 @@
-"""Step 8 (Milestone 3): learned colour de-fader.
+"""learned colour de-fader.
 
 A U-Net looks at a faded tile and predicts a LAB colour correction (a residual added to the input), trained on pairs made
 by the fading simulator (clean tile -> faded tile). ~15% of training samples are NOT faded, so the model learns to leave
 healthy colours alone. Evaluated with CIEDE2000 on the fixed synthetic test set, next to "faded input" (do nothing).
 
-    python 08_train_defade.py                  # ~10-15 min on a T4
-    python 08_train_defade.py --epochs 1 --samples_per_epoch 8 --bs 4 --workers 0 --no_pretrained --n_val 4 --test_n 4   # smoke test
+    python scripts/train/defade.py                  # ~10-15 min on a T4
+    python scripts/train/defade.py --epochs 1 --samples_per_epoch 8 --bs 4 --workers 0 --no_pretrained --n_val 4 --test_n 4   # smoke test
 """
 import argparse
 import csv
@@ -19,8 +19,8 @@ import torch
 from skimage.color import deltaE_ciede2000, rgb2lab
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 
-from common import (build_defade_model, defade_forward, defade_image, imread_rgb, imwrite_rgb)
-from degrade import apply_fade, make_fade_strength
+from folk_restore import (build_defade_model, defade_forward, defade_image, imread_rgb, imwrite_rgb)
+from folk_restore.degrade import apply_fade, make_fade_strength
 
 
 class FadeDS(Dataset):

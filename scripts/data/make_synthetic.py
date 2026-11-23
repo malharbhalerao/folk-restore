@@ -1,4 +1,4 @@
-"""Step 2: generate the FIXED synthetic val/test sets (training data is generated on the fly in step 3).
+"""generate the FIXED synthetic val/test sets (training data is generated on the fly in step 3).
 
 For every sampled tile writes into data/synthetic/<split>/ :
     <id>_damaged.png  damaged + faded      (segmenter input)
@@ -13,8 +13,8 @@ from pathlib import Path
 import numpy as np
 from tqdm import tqdm
 
-from common import CLASSES, imread_rgb, imwrite_gray, imwrite_rgb
-from degrade import degrade, degrade_v2
+from folk_restore import CLASSES, imread_rgb, imwrite_gray, imwrite_rgb
+from folk_restore.degrade import degrade, degrade_v2
 
 
 def main():

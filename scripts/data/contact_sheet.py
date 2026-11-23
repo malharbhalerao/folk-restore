@@ -1,8 +1,8 @@
 """Step 0c: eyeball the collected images fast, and pick the genuinely damaged ones for the real-image demo.
 
-    python 00c_contact_sheet.py                        # sheets/sheet_000.jpg ... (30 thumbnails each, numbered)
-    python 00c_contact_sheet.py --prefix met_          # only one source (museum items are older -> more likely damaged)
-    python 00c_contact_sheet.py --copy 12 40 77        # MOVE those numbered images to data/real_damaged/
+    python scripts/data/contact_sheet.py                        # sheets/sheet_000.jpg ... (30 thumbnails each, numbered)
+    python scripts/data/contact_sheet.py --prefix met_          # only one source (museum items are older -> more likely damaged)
+    python scripts/data/contact_sheet.py --copy 12 40 77        # MOVE those numbered images to data/real_damaged/
 
 Do this BEFORE step 1: damaged paintings must not stay in data/raw, otherwise they are treated as clean training images.
 """
@@ -14,7 +14,7 @@ from pathlib import Path
 import cv2
 import numpy as np
 
-from common import list_images
+from folk_restore import list_images
 
 
 def thumb(path, size):
