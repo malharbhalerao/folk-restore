@@ -92,3 +92,4 @@ def dilate_mask(mask01, dilate):
 # ----------------------------------------------------------------------------- metrics
 def dice_np(pred, gt, eps=1e-6):
     pred, gt = pred.astype(bool), gt.astype(bool)
+    return float((2 * (pred & gt).sum() + eps) / (pred.sum() + gt.sum() + eps))

@@ -2,7 +2,6 @@
 from pathlib import Path
 
 import cv2
-import numpy as np
 
 from .config import IMG_EXTS, SOURCE_FIELDS
 

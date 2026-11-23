@@ -1,0 +1,16 @@
+README.md
+pyproject.toml
+folk_restore/__init__.py
+folk_restore/colour.py
+folk_restore/config.py
+folk_restore/degrade.py
+folk_restore/inpaint.py
+folk_restore/io.py
+folk_restore/segment.py
+folk_restore/sr.py
+folk_restore.egg-info/PKG-INFO
+folk_restore.egg-info/SOURCES.txt
+folk_restore.egg-info/dependency_links.txt
+folk_restore.egg-info/requires.txt
+folk_restore.egg-info/top_level.txt
+tests/test_smoke.py

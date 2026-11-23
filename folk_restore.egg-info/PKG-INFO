@@ -1,0 +1,17 @@
+Metadata-Version: 2.4
+Name: folk-restore
+Version: 0.2.0
+Summary: Digital restoration of Indian folk paintings: damage segmentation, inpainting, de-fading, super-resolution and confidence maps
+Requires-Python: >=3.10
+Requires-Dist: numpy
+Requires-Dist: opencv-python
+Requires-Dist: scikit-image
+Requires-Dist: matplotlib
+Requires-Dist: tqdm
+Requires-Dist: requests
+Requires-Dist: pillow
+Requires-Dist: torch
+Requires-Dist: torchvision
+Requires-Dist: segmentation-models-pytorch
+Requires-Dist: timm
+Requires-Dist: lpips
