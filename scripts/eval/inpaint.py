@@ -15,7 +15,7 @@ from skimage.metrics import structural_similarity
 from tqdm import tqdm
 
 from folk_restore import composite, dilate_mask, imread_rgb, imwrite_gray, imwrite_rgb, infill_mask, load_model, segment_image, telea
-from folk_restore.inpaint import Lama
+from folk_restore.inpaint import DiffusionInpaint, Lama
 from folk_restore.metrics import make_lpips, psnr_full, psnr_region
 
 
@@ -31,6 +31,8 @@ def main():
     ap.add_argument("--save_n", type=int, default=12)
     ap.add_argument("--out", default="results")
     ap.add_argument("--no_lpips", action="store_true")
+    ap.add_argument("--diffusion", action="store_true", help="add Stable Diffusion inpainting rows (slow; use with --n 50)")
+    ap.add_argument("--tag", default="inpaint_ft", help="output file prefix")
     a = ap.parse_args()
 
     data, out = Path(a.data), Path(a.out)
@@ -38,6 +40,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
     seg, mode = load_model(a.ckpt, device)
     zs, ft = Lama(None, device), Lama(a.lama_ft, device)
+    sd = DiffusionInpaint(device=device) if a.diffusion else None
     lpips_val = None if a.no_lpips else make_lpips(device)
     if lpips_val is None:
         lpips_val = lambda x, y: None  # noqa: E731
@@ -60,6 +63,9 @@ def main():
                "LaMa zero-shot, predicted mask": composite(struct, zs(struct, m_pr), m_pr),
                "LaMa fine-tuned, oracle mask": composite(struct, ft(struct, m_or), m_or),
                "LaMa fine-tuned, predicted mask": composite(struct, ft(struct, m_pr), m_pr)}
+        if sd is not None:
+            res["Diffusion (SD inpaint), oracle mask"] = composite(struct, sd(struct, m_or), m_or)
+            res["Diffusion (SD inpaint), predicted mask"] = composite(struct, sd(struct, m_pr), m_pr)
         for name, img in res.items():
             rows.append({"tile_id": tid, "method": name, "psnr_region": psnr_region(img, clean, m_or),
                          "psnr_full": psnr_full(img, clean),
@@ -73,8 +79,10 @@ def main():
             imwrite_rgb(s / f"{tid}_telea.png", res["Telea, predicted mask"])
             imwrite_rgb(s / f"{tid}_lama.png", res["LaMa fine-tuned, predicted mask"])   # 07_make_figures shows "lama"
             imwrite_rgb(s / f"{tid}_lamazs.png", res["LaMa zero-shot, predicted mask"])
+            if sd is not None:
+                imwrite_rgb(s / f"{tid}_diffusion.png", res["Diffusion (SD inpaint), predicted mask"])
 
-    with open(out / "inpaint_ft_metrics.csv", "w", newline="") as f:
+    with open(out / f"{a.tag}_metrics.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(rows[0].keys()))
         w.writeheader()
         w.writerows(rows)
@@ -83,9 +91,9 @@ def main():
         rr = [r for r in rows if r["method"] == m]
         mean = lambda key: np.mean([r[key] for r in rr if r[key] is not None]) if any(r[key] is not None for r in rr) else float("nan")  # noqa: E731
         lines.append(f"| {m} | {mean('psnr_region'):.2f} | {mean('psnr_full'):.2f} | {mean('ssim_full'):.4f} | {mean('lpips_full'):.4f} |")
-    (out / "inpaint_ft_summary.md").write_text("\n".join(lines) + "\n")
+    (out / f"{a.tag}_summary.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
-    print(f"\nsaved to {out}/ (inpaint_ft_metrics.csv, inpaint_ft_summary.md, samples_ft/)")
+    print(f"\nsaved to {out}/ ({a.tag}_metrics.csv, {a.tag}_summary.md, samples_ft/)")
 
 
 if __name__ == "__main__":
