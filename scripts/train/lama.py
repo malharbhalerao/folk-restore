@@ -1,4 +1,4 @@
-"""Step 9 (Milestone 2): fine-tune pretrained Big-LaMa on OUR tiles, with synthetic damage masks.
+"""fine-tune pretrained Big-LaMa on OUR tiles, with synthetic damage masks.
 
 Why fine-tune instead of the zero-shot model of the progress report:
   * the brief asks for a *trained* inpainting model;
@@ -10,9 +10,9 @@ decoys) -> mask = dilated union of the true damage masks, plus extra large blobs
 Loss: masked L1 + VGG perceptual + PatchGAN hinge. The PatchGAN critic is trained from scratch alongside and is saved,
 because Milestone 4 reuses it as the discriminator-based uncertainty signal.
 
-    python 09_finetune_lama.py                                   # ~30-40 min on a T4 (estimate, not measured)
-    python 09_finetune_lama.py --epochs 1 --samples_per_epoch 4 --bs 1 --crop 128 --n_val 2 --no_perc   # smoke test
-Outputs: runs/lama_ft/best.pt (TorchScript, loadable by LamaJit), disc.pt, log.csv
+    python scripts/train/lama.py                                   # ~30-40 min on a T4 (estimate, not measured)
+    python scripts/train/lama.py --epochs 1 --samples_per_epoch 4 --bs 1 --crop 128 --n_val 2 --no_perc   # smoke test
+Outputs: runs/lama_ft/best.pt (TorchScript, loadable by folk_restore.inpaint.Lama), disc.pt, log.csv
 """
 import argparse
 import csv
@@ -26,9 +26,10 @@ import torch
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 
-from common import CLASSES, dilate_mask, imread_rgb
-from degrade import degrade
-from inpaint_lib import PatchD, VGGPerceptual, LamaJit, load_lama_jit, random_blob_mask, save_disc
+from folk_restore import CLASSES, dilate_mask, imread_rgb
+from folk_restore.degrade import degrade
+from folk_restore.gan import PatchD, VGGPerceptual, save_disc
+from folk_restore.inpaint import load_lama_jit, random_blob_mask
 
 
 class InpaintDS(Dataset):

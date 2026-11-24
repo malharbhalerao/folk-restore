@@ -27,12 +27,13 @@ import cv2
 import numpy as np
 import torch
 
-import uncertainty as U
-from common import (composite, defade_image, imread_rgb, imwrite_gray, imwrite_rgb, infill_mask, list_images, load_defade,
+from folk_restore import uncertainty as U
+from folk_restore import (composite, defade_image, imread_rgb, imwrite_gray, imwrite_rgb, infill_mask, list_images, load_defade,
                     load_model, resize_long_side, segment_image, telea)
-from defade_gan import defade_ref_image, load_g, ref_stats
-from inpaint_lib import LamaJit, disc_logits, load_disc
-from sr_lib import load_esrgan, super_resolve
+from folk_restore.colour import defade_ref_image, load_g, ref_stats
+from folk_restore.gan import disc_logits, load_disc
+from folk_restore.inpaint import Lama
+from folk_restore.sr import load_esrgan, super_resolve
 
 
 def parse_margin(s, img):
@@ -83,15 +84,15 @@ def main():
         return p and Path(p).exists()
 
     if not have(a.ckpt):
-        raise SystemExit(f"Segmenter checkpoint {a.ckpt} not found. Train it with 03_train_unet.py first.")
+        raise SystemExit(f"Segmenter checkpoint {a.ckpt} not found. Train it with scripts/train/segmenter.py first.")
     seg, mode = load_model(a.ckpt, device)
 
     inpaint, inpaint_name = None, "OpenCV Telea"
     try:
         if have(a.lama_ft):
-            inpaint, inpaint_name = LamaJit(a.lama_ft, device), "LaMa (fine-tuned)"
+            inpaint, inpaint_name = Lama(a.lama_ft, device), "LaMa (fine-tuned)"
         else:
-            inpaint, inpaint_name = LamaJit(None, device), "LaMa (pretrained, zero-shot)"
+            inpaint, inpaint_name = Lama(None, device), "LaMa (pretrained, zero-shot)"
     except Exception as e:  # noqa: BLE001
         print(f"[warn] LaMa unavailable ({type(e).__name__}: {e}); using Telea")
     print("inpainting:", inpaint_name)
@@ -113,7 +114,7 @@ def main():
         cp = Path(a.disc).with_name("disc_calib.json")
         calib = json.load(open(cp)) if cp.exists() else None
         if calib is None:
-            print("[warn] no disc_calib.json (run 12_eval_sr_uncertainty.py once); the discriminator signal is skipped")
+            print("[warn] no disc_calib.json (run scripts/eval/uncertainty_sr.py once); the discriminator signal is skipped")
             disc = None
     sr_net = load_esrgan(device) if a.sr else None
 

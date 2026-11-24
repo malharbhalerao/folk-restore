@@ -1,4 +1,4 @@
-"""Step 12 (Milestone 4 results): does the uncertainty map mean anything, and does tiled super-resolution work?
+"""does the uncertainty map mean anything, and does tiled super-resolution work?
 
 A. Discriminator calibration: logits of the LaMa-fine-tuning critic on CLEAN tiles -> runs/<name>/disc_calib.json
 B. Uncertainty validity on the synthetic TEST set (where the true restoration error is known):
@@ -8,7 +8,7 @@ B. Uncertainty validity on the synthetic TEST set (where the true restoration er
 C. Super-resolution: clean 512 tile -> 128 (area down-sampling) -> bicubic x4 vs Real-ESRGAN x4 (tiled), scored against the
      clean tile with PSNR / SSIM / LPIPS; plus tiled-vs-untiled difference (seams) and timing.
 
-    python 12_eval_sr_uncertainty.py --lama_ft runs/lama_ft/best.pt --disc runs/lama_ft/disc.pt
+    python scripts/eval/uncertainty_sr.py --lama_ft runs/lama_ft/best.pt --disc runs/lama_ft/disc.pt
 """
 import argparse
 import csv
@@ -23,10 +23,11 @@ from scipy.stats import rankdata, spearmanr
 from skimage.metrics import peak_signal_noise_ratio, structural_similarity
 from tqdm import tqdm
 
-import uncertainty as U
-from common import dilate_mask, imread_rgb, imwrite_rgb, infill_mask, load_model, segment_image
-from inpaint_lib import LamaJit, disc_logits, load_disc
-from sr_lib import load_esrgan, sr_x4
+from folk_restore import uncertainty as U
+from folk_restore import composite, imread_rgb, imwrite_rgb, infill_mask, load_model, segment_image
+from folk_restore.gan import disc_logits, load_disc
+from folk_restore.inpaint import Lama
+from folk_restore.sr import load_esrgan, sr_x4
 
 
 def auroc(score, positive):
@@ -72,7 +73,7 @@ def main():
 
     # ------------------------------------------------------------------ B. uncertainty vs true error
     seg, mode = load_model(a.ckpt, device)
-    lama = LamaJit(a.lama_ft, device)
+    lama = Lama(a.lama_ft, device)
     folder = data / "synthetic" / "test"
     idx = list(csv.DictReader(open(folder / "index.csv")))[:a.n]
     sig_names = ["entropy", "fill", "disagree", "disc", "fused"]
@@ -89,7 +90,6 @@ def main():
             continue
         variants = U.tta_inpaint(lama, struct, mask)
         restored = variants[0]
-        from common import composite
         restored = composite(struct, restored, mask)
         sig = {"entropy": U.signal_entropy(prob), "fill": U.signal_fill(mask),
                "disagree": U.signal_disagree(variants, mask),

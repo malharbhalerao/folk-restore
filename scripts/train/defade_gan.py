@@ -1,4 +1,4 @@
-"""Step 11 (Milestone 3): Pix2Pix colour de-fader with protected-margin references.
+"""Pix2Pix colour de-fader with protected-margin references.
 
 Improves on step 8 (U-Net, L1 only, no references) in the two ways the brief asks for:
   1. adversarial training: a conditional PatchGAN critic (Pix2Pix) next to the L1 loss;
@@ -7,9 +7,9 @@ Improves on step 8 (U-Net, L1 only, no references) in the two ways the brief ask
 Training pairs come from the same fading simulator as step 8. 30% of samples carry no reference (flag = 0) so the model also
 works when no margin is available.
 
-    python 11_train_pix2pix_defade.py                      # ~15-25 min on a T4 (estimate, not measured)
-    python 11_train_pix2pix_defade.py --lambda_gan 0       # ablation: same model, no adversarial loss
-    python 11_train_pix2pix_defade.py --epochs 1 --samples_per_epoch 8 --bs 4 --workers 0 --no_pretrained --n_val 4 --test_n 4   # smoke test
+    python scripts/train/defade_gan.py                      # ~15-25 min on a T4 (estimate, not measured)
+    python scripts/train/defade_gan.py --lambda_gan 0       # ablation: same model, no adversarial loss
+    python scripts/train/defade_gan.py --epochs 1 --samples_per_epoch 8 --bs 4 --workers 0 --no_pretrained --n_val 4 --test_n 4   # smoke test
 Outputs: runs/defade_gan/best.pt, log.csv; results/defade_gan.md, results/defade_gan_samples/
 """
 import argparse
@@ -21,13 +21,13 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
-from skimage.color import deltaE_ciede2000, rgb2lab
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 
-from common import DEFADE_NORM, imread_rgb, imwrite_rgb, load_defade, defade_image
-from defade_gan import build_g, d_input, defade_ref_image, g_forward, lab_of, margin_strip, ref_stats, ref_vector
-from degrade import apply_fade, make_fade_strength
-from inpaint_lib import PatchD
+from folk_restore import imread_rgb, imwrite_rgb, load_defade, defade_image
+from folk_restore.colour import DEFADE_NORM, build_g, d_input, defade_ref_image, g_forward, lab_of, margin_strip, ref_stats, ref_vector
+from folk_restore.degrade import apply_fade, make_fade_strength
+from folk_restore.gan import PatchD
+from folk_restore.metrics import de00
 
 
 class FadeRefDS(Dataset):
@@ -56,10 +56,6 @@ class FadeRefDS(Dataset):
             ref = ref_vector(ref_stats(faded), False)
         lab = lambda im: torch.from_numpy(lab_of(im).transpose(2, 0, 1).copy())  # noqa: E731
         return lab(faded), lab(clean), torch.from_numpy(ref)
-
-
-def de00(a, b):
-    return float(deltaE_ciede2000(rgb2lab(a), rgb2lab(b)).mean())
 
 
 def evaluate(model, data, split, n, device):

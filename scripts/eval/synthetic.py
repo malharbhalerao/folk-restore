@@ -15,21 +15,10 @@ import torch
 from skimage.metrics import structural_similarity
 from tqdm import tqdm
 
+from folk_restore.metrics import psnr_full, psnr_region
+
 from folk_restore import (CLASSES, composite, dice_np, dilate_mask, imread_rgb, imwrite_gray, imwrite_rgb,
                     infill_mask, load_model, segment_image, telea, try_lama)
-
-
-def psnr_region(a, b, region):
-    r = region > 0
-    if r.sum() == 0:
-        return None
-    mse = np.mean((a[r].astype(np.float64) - b[r].astype(np.float64)) ** 2)
-    return 99.0 if mse < 1e-9 else float(10 * np.log10(255.0 ** 2 / mse))
-
-
-def psnr_full(a, b):
-    mse = np.mean((a.astype(np.float64) - b.astype(np.float64)) ** 2)
-    return 99.0 if mse < 1e-9 else float(10 * np.log10(255.0 ** 2 / mse))
 
 
 def main():

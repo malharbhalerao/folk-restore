@@ -2,7 +2,8 @@
 import numpy as np
 
 from folk_restore import CLASSES, composite, dice_np, infill_mask, telea
-from folk_restore.degrade import degrade, degrade_v2
+from folk_restore import uncertainty as U
+from folk_restore.degrade import degrade
 
 
 def _tile(seed=0):
@@ -16,14 +17,18 @@ def test_degrade_shapes_and_masks():
     assert set(d["masks"]) == set(CLASSES)
 
 
-def test_degrade_v2_clean_negatives_have_empty_masks():
-    rng = np.random.default_rng(0)
-    seen_clean = False
-    for _ in range(40):
-        d = degrade_v2(_tile(), rng, p_clean=0.5)
-        if not any(m.any() for m in d["masks"].values()):
-            seen_clean = True
-    assert seen_clean
+def test_degrade_wall_profile_and_decoys_keep_masks_consistent():
+    d = degrade(_tile(), np.random.default_rng(2), profile="wall", decoy_prob=1.0, scale_jitter=1.0, photo=1.0)
+    assert d["image"].shape == (128, 128, 3) and d["clean"].shape == (128, 128, 3)
+    assert all(m.shape == (128, 128) for m in d["masks"].values())
+
+
+def test_confidence_fusion_range():
+    prob = np.zeros((64, 64, 3), np.float32)
+    mask = np.zeros((64, 64), np.uint8)
+    mask[20:40, 20:40] = 255
+    conf, unc = U.fuse({"entropy": U.signal_entropy(prob), "fill": U.signal_fill(mask)}, mask)
+    assert conf.min() >= 0 and conf.max() <= 1 and conf[30, 30] < conf[2, 2]
 
 
 def test_infill_and_inpaint_roundtrip():

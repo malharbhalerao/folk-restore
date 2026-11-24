@@ -1,4 +1,4 @@
-"""Step 0c: eyeball the collected images fast, and pick the genuinely damaged ones for the real-image demo.
+"""eyeball the collected images fast, and pick the genuinely damaged ones for the real-image demo.
 
     python scripts/data/contact_sheet.py                        # sheets/sheet_000.jpg ... (30 thumbnails each, numbered)
     python scripts/data/contact_sheet.py --prefix met_          # only one source (museum items are older -> more likely damaged)

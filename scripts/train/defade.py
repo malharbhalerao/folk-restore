@@ -16,10 +16,10 @@ from pathlib import Path
 import cv2
 import numpy as np
 import torch
-from skimage.color import deltaE_ciede2000, rgb2lab
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 
 from folk_restore import (build_defade_model, defade_forward, defade_image, imread_rgb, imwrite_rgb)
+from folk_restore.metrics import de00
 from folk_restore.degrade import apply_fade, make_fade_strength
 
 
@@ -46,10 +46,6 @@ class FadeDS(Dataset):
             faded = apply_fade(clean, make_fade_strength(c, c, np.random.default_rng()))
         lab = lambda im: torch.from_numpy(cv2.cvtColor(im.astype(np.float32) / 255.0, cv2.COLOR_RGB2LAB).transpose(2, 0, 1).copy())  # noqa: E731
         return lab(faded), lab(clean)
-
-
-def de00(a, b):
-    return float(deltaE_ciede2000(rgb2lab(a), rgb2lab(b)).mean())
 
 
 def evaluate(model, data, split, n, device, strength=1.0):

@@ -1,7 +1,7 @@
 """Diagnose why the segmenter finds little on REAL images: image sizes, damage % at several thresholds and several
 working scales (the segmenter was trained on 512 px tiles; real photos may show damage at a very different scale).
 
-    python 13_diagnose_real.py data/real_damaged --ckpt runs/unet_v3/best.pt --out results/diagnose
+    python scripts/eval/diagnose_real.py data/real_damaged --ckpt runs/unet_v3/best.pt --out results/diagnose
 Writes <out>/diagnose.csv and one panel per image (rows = scale, cols = threshold) for the first --panels images.
 """
 import argparse
@@ -12,7 +12,7 @@ import cv2
 import numpy as np
 import torch
 
-from common import imwrite_rgb, imread_rgb, list_images, load_model, segment_image
+from folk_restore import imwrite_rgb, imread_rgb, list_images, load_model, segment_image
 
 SCALES = (0.5, 0.75, 1.0, 1.5, 2.0)
 THRS = (0.2, 0.3, 0.5)

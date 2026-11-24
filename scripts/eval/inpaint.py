@@ -1,13 +1,12 @@
-"""Step 10 (Milestone 2 result): fine-tuned LaMa vs zero-shot LaMa vs Telea on the fixed synthetic TEST set.
+"""fine-tuned LaMa vs zero-shot LaMa vs Telea on the fixed synthetic TEST set.
 
 Same protocol as step 4 (inpainting run on the un-faded damaged tile; scored on the dilated ground-truth damage region and
 on the whole tile), with both ORACLE masks and our PREDICTED masks. Adds the fine-tuned model as extra rows.
 
-    python 10_eval_inpaint.py --lama_ft runs/lama_ft/best.pt
+    python scripts/eval/inpaint.py --lama_ft runs/lama_ft/best.pt
 """
 import argparse
 import csv
-import importlib
 from pathlib import Path
 
 import numpy as np
@@ -15,10 +14,10 @@ import torch
 from skimage.metrics import structural_similarity
 from tqdm import tqdm
 
-from common import composite, dilate_mask, imread_rgb, imwrite_gray, imwrite_rgb, infill_mask, load_model, segment_image, telea
-from inpaint_lib import LamaJit
+from folk_restore import composite, dilate_mask, imread_rgb, imwrite_gray, imwrite_rgb, infill_mask, load_model, segment_image, telea
+from folk_restore.inpaint import Lama
+from folk_restore.metrics import make_lpips, psnr_full, psnr_region
 
-ev = importlib.import_module("04_evaluate")      # re-use the exact metric functions of step 4
 
 
 def main():
@@ -38,21 +37,10 @@ def main():
     (out / "samples_ft").mkdir(parents=True, exist_ok=True)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     seg, mode = load_model(a.ckpt, device)
-    zs, ft = LamaJit(None, device), LamaJit(a.lama_ft, device)
-    lp = None
-    if not a.no_lpips:
-        try:
-            import lpips
-            lp = lpips.LPIPS(net="alex", verbose=False).to(device)
-        except Exception as e:  # noqa: BLE001
-            print(f"[warn] LPIPS unavailable ({e})")
-
-    def lpips_val(x, y):
-        if lp is None:
-            return None
-        t = lambda im: torch.from_numpy(im).permute(2, 0, 1)[None].float().div(127.5).sub(1).to(device)  # noqa: E731
-        with torch.no_grad():
-            return float(lp(t(x), t(y)).item())
+    zs, ft = Lama(None, device), Lama(a.lama_ft, device)
+    lpips_val = None if a.no_lpips else make_lpips(device)
+    if lpips_val is None:
+        lpips_val = lambda x, y: None  # noqa: E731
 
     folder = data / "synthetic" / "test"
     idx = {r["tile_id"]: r for r in csv.DictReader(open(folder / "index.csv"))}
@@ -73,8 +61,8 @@ def main():
                "LaMa fine-tuned, oracle mask": composite(struct, ft(struct, m_or), m_or),
                "LaMa fine-tuned, predicted mask": composite(struct, ft(struct, m_pr), m_pr)}
         for name, img in res.items():
-            rows.append({"tile_id": tid, "method": name, "psnr_region": ev.psnr_region(img, clean, m_or),
-                         "psnr_full": ev.psnr_full(img, clean),
+            rows.append({"tile_id": tid, "method": name, "psnr_region": psnr_region(img, clean, m_or),
+                         "psnr_full": psnr_full(img, clean),
                          "ssim_full": float(structural_similarity(img, clean, channel_axis=2)),
                          "lpips_full": lpips_val(img, clean)})
         if k < a.save_n:

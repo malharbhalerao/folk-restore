@@ -1,4 +1,4 @@
-"""Step 6 (Milestone 3 baseline): Reinhard colour transfer toward the training-set palette.
+"""Reinhard colour transfer toward the training-set palette.
 
 Builds data/ref_stats.npz (mean/std of LAB over clean training tiles) and measures
 CIEDE2000 on the synthetic test set: faded tile vs. Reinhard(faded tile), both compared to the clean tile.

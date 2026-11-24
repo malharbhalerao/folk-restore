@@ -14,7 +14,7 @@ import numpy as np
 from tqdm import tqdm
 
 from folk_restore import CLASSES, imread_rgb, imwrite_gray, imwrite_rgb
-from folk_restore.degrade import degrade, degrade_v2
+from folk_restore.degrade import degrade
 
 
 def main():
@@ -23,30 +23,27 @@ def main():
     ap.add_argument("--n_val", type=int, default=200)
     ap.add_argument("--n_test", type=int, default=200)
     ap.add_argument("--seed", type=int, default=123)
-    ap.add_argument("--hard", action="store_true",
-                    help="also write synthetic/test_hard: distractor design strokes, 25%% damage-free tiles, photometric variation")
+    ap.add_argument("--profile", choices=["paper", "wall", "mixed"], default="paper")
+    ap.add_argument("--scale_jitter", type=float, default=0.0)
+    ap.add_argument("--photo", type=float, default=0.0)
+    ap.add_argument("--out_name", default="synthetic", help="folder under --data (use synthetic_wall for the wall set)")
     a = ap.parse_args()
 
     data = Path(a.data)
     rows = list(csv.DictReader(open(data / "manifest.csv")))
     rng = np.random.default_rng(a.seed)
-    jobs = [("val", "val", a.n_val, False), ("test", "test", a.n_test, False)]
-    if a.hard:
-        jobs.append(("test_hard", "test", a.n_test, True))
-    for name, split, n, hard in jobs:
+    for split, n in (("val", a.n_val), ("test", a.n_test)):
         pool = [r for r in rows if r["split"] == split]
         if not pool:
             print(f"[warn] no tiles in split '{split}'")
             continue
         idx = rng.permutation(len(pool))[:n]
-        out = data / "synthetic" / name
+        out = data / a.out_name / split
         index = []
-        for i in tqdm(idx, desc=f"synthetic {name}"):
+        for i in tqdm(idx, desc=f"synthetic {split}"):
             r = pool[int(i)]
             clean = imread_rgb(data / r["path"])
-            d = degrade_v2(clean, rng, fade_prob=1.0, p_clean=0.25, p_distract=0.8) if hard else degrade(clean, rng, fade_prob=1.0)
-            if hard:
-                imwrite_rgb(out / f"{r['tile_id']}_clean.png", d["clean_aug"])
+            d = degrade(clean, rng, fade_prob=1.0, profile=a.profile, scale_jitter=a.scale_jitter, photo=a.photo)
             tid = r["tile_id"]
             imwrite_rgb(out / f"{tid}_damaged.png", d["image"])
             imwrite_rgb(out / f"{tid}_struct.png", d["image_struct"])
@@ -57,7 +54,7 @@ def main():
             w = csv.DictWriter(f, fieldnames=["tile_id", "path", "style"])
             w.writeheader()
             w.writerows(index)
-        print(f"{name}: {len(index)} synthetic tiles -> {out}")
+        print(f"{split}: {len(index)} synthetic tiles -> {out}")
 
 
 if __name__ == "__main__":

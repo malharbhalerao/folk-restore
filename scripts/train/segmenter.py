@@ -17,12 +17,13 @@ import torch
 from torch.utils.data import DataLoader, Dataset, RandomSampler
 
 from folk_restore import CLASSES, build_model, features, imread_rgb
-from folk_restore.degrade import degrade, degrade_v2
+from folk_restore.degrade import degrade
 
 
 class TrainDS(Dataset):
-    def __init__(self, data, mode, crop, aug="v1"):
-        self.data, self.mode, self.crop, self.aug = Path(data), mode, crop, aug
+    def __init__(self, data, mode, crop, decoy_prob=0.0, profile='paper', scale_jitter=0.0, photo=0.0):
+        self.data, self.mode, self.crop, self.decoy_prob = Path(data), mode, crop, decoy_prob
+        self.profile, self.scale_jitter, self.photo = profile, scale_jitter, photo
         self.rows = [r for r in csv.DictReader(open(self.data / "manifest.csv")) if r["split"] == "train"]
         if not self.rows:
             raise SystemExit("No training tiles in manifest.csv")
@@ -33,22 +34,15 @@ class TrainDS(Dataset):
     def __getitem__(self, i):
         cv2.setNumThreads(0)
         clean = imread_rgb(self.data / self.rows[i]["path"])
-        if self.aug == "v2":    # scale augmentation: real images are run at a different pixel scale than the tiles
-            f = random.uniform(0.5, 1.2)
-            clean = cv2.resize(clean, None, fx=f, fy=f, interpolation=cv2.INTER_AREA)
         H, W = clean.shape[:2]
         c = self.crop
-        if min(H, W) < c:
-            clean = cv2.resize(clean, (max(W, c), max(H, c)), interpolation=cv2.INTER_CUBIC)
-            H, W = clean.shape[:2]
         y, x = random.randint(0, H - c), random.randint(0, W - c)
         clean = clean[y:y + c, x:x + c]
         clean = np.rot90(clean, random.randint(0, 3))
         if random.random() < 0.5:
             clean = clean[:, ::-1]
-        rng = np.random.default_rng()
-        clean = np.ascontiguousarray(clean)
-        d = degrade_v2(clean, rng) if self.aug == "v2" else degrade(clean, rng, fade_prob=0.6)
+        d = degrade(np.ascontiguousarray(clean), np.random.default_rng(), fade_prob=0.6, decoy_prob=self.decoy_prob,
+                    profile=self.profile, scale_jitter=self.scale_jitter, photo=self.photo)
         f = features(d["image"], self.mode).transpose(2, 0, 1)
         t = np.stack([d["masks"][k] for k in CLASSES], 0).astype(np.float32)
         return torch.from_numpy(np.ascontiguousarray(f)), torch.from_numpy(t)
@@ -107,8 +101,14 @@ def main():
     ap.add_argument("--lr", type=float, default=3e-4)
     ap.add_argument("--workers", type=int, default=2)
     ap.add_argument("--n_val", type=int, default=200)
+    ap.add_argument("--decoy_prob", type=float, default=0.0,
+                    help="fraction of training tiles that get UNLABELLED design lines (hard negatives); try 0.4 for the v2 model")
+    ap.add_argument("--profile", choices=["paper", "wall", "mixed"], default="paper",
+                    help="damage simulator: paper (original), wall (plaster flaking/salt/streaks), mixed (50/50)")
+    ap.add_argument("--scale_jitter", type=float, default=0.0, help="prob. damage is rendered at a random 0.5-2x scale")
+    ap.add_argument("--photo", type=float, default=0.0, help="prob. of phone-photo blur/noise/JPEG/uneven light")
+    ap.add_argument("--val_dir", default=None, help="fixed validation folder (default data/synthetic/val)")
     ap.add_argument("--no_pretrained", action="store_true")
-    ap.add_argument("--aug", choices=["v1", "v2"], default="v1", help="v2 = distractor strokes, clean negatives, photometric + scale aug")
     ap.add_argument("--seed", type=int, default=0)
     a = ap.parse_args()
     random.seed(a.seed)
@@ -121,11 +121,11 @@ def main():
     run = Path("runs") / a.name
     run.mkdir(parents=True, exist_ok=True)
 
-    train_ds = TrainDS(a.data, a.mode, a.crop, a.aug)
+    train_ds = TrainDS(a.data, a.mode, a.crop, a.decoy_prob, a.profile, a.scale_jitter, a.photo)
     sampler = RandomSampler(train_ds, replacement=True, num_samples=a.samples_per_epoch)
     train_dl = DataLoader(train_ds, batch_size=a.bs, sampler=sampler, num_workers=a.workers,
                           drop_last=True, persistent_workers=a.workers > 0)
-    val_dl = DataLoader(FixedDS(Path(a.data) / "synthetic" / "val", a.mode, a.n_val), batch_size=8, num_workers=0)
+    val_dl = DataLoader(FixedDS(Path(a.val_dir) if a.val_dir else Path(a.data) / "synthetic" / "val", a.mode, a.n_val), batch_size=8, num_workers=0)
 
     model = build_model(a.mode, a.encoder, pretrained=not a.no_pretrained).to(device)
     dice_loss = smp.losses.DiceLoss(mode="multilabel", from_logits=True)

@@ -9,7 +9,7 @@ Four signals, each scaled to [0, 1] where 1 = "speculative / do not trust":
   disc      the PatchGAN discriminator (trained during LaMa fine-tuning) scores how "real painting" a patch looks;
             patches scoring below what real patches score are suspicious
 Outside the repaired region the pixels are the original paint, so only `entropy` (a missed-damage warning) applies.
-Confidence = 1 - uncertainty. The weights below are a judgement call, not tuned; 12_eval_sr_uncertainty.py reports how well
+Confidence = 1 - uncertainty. The weights below are a judgement call, not tuned; scripts/eval/uncertainty_sr.py reports how well
 each signal (and the fusion) predicts real error, so re-weight there if you disagree.
 """
 import cv2

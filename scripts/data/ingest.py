@@ -1,4 +1,4 @@
-"""Step 0b: add images you gathered yourself (a Kaggle input dataset, a folder of manual downloads) to data/raw/.
+"""add images you gathered yourself (a Kaggle input dataset, a folder of manual downloads) to data/raw/.
 
     # everything in the folder is one style:
     python scripts/data/ingest.py --src /kaggle/input/some-madhubani-dataset --style madhubani --source_name kaggle-xyz --license "see dataset page"

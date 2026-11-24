@@ -1,4 +1,4 @@
-"""Step 0: collect an open-licence dataset of Indian folk paintings from public museum / Commons APIs.
+"""collect an open-licence dataset of Indian folk paintings from public museum / Commons APIs.
 
     python scripts/data/collect.py find-categories --term Madhubani      # (optional) discover Commons category names
     python scripts/data/collect.py collect --contact you@example.com     # download into data/raw/<style>/
