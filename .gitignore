@@ -17,3 +17,4 @@ logs/
 audit/*.jpg
 audit/*.png
 audit_for_raters.zip
+results_nogan/

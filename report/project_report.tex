@@ -68,16 +68,13 @@ flaking, tide-line stains, LAB fading, and, new in v3, \emph{(a)} unlabelled dec
 strokes are learnt as design and jagged branching ones as cracks, \emph{(b)} plaster flaking with ochre/brick underlayer, salt blooms and rain streaks,
 \emph{(c)} damage rendered at 0.5--2$\times$ scale, \emph{(d)} phone-photo blur/noise/JPEG/uneven light. Masks are the union of classes, closed, filtered and dilated.\\
 
-\medskip
-\noindent\textbf{M2 Inpainting.} Big-LaMa (51\,M parameters, TorchScript) is fine-tuned for 8 epochs with masked L1 (weight 10) + VGG perceptual + spectral-norm PatchGAN hinge loss
+\textbf{M2 Inpainting.} Big-LaMa (51\,M parameters, TorchScript) is fine-tuned for 8 epochs with masked L1 (weight 10) + VGG perceptual + spectral-norm PatchGAN hinge loss
 (ramped to 0.05) on simulated-damage tiles plus random large blobs; lr $2\!\times\!10^{-5}$. We also run Stable Diffusion~1.5 inpainting (fp16, 25 steps) and always composite the original outside the mask.\\
 
-\medskip
-\noindent\textbf{M3 Colour.} A U-Net predicts a LAB residual added to the input (zero-initialised head $\Rightarrow$ identity at start), L1 loss, 15\% unfaded samples.
+\textbf{M3 Colour.} A U-Net predicts a LAB residual added to the input (zero-initialised head $\Rightarrow$ identity at start), L1 loss, 15\% unfaded samples.
 Variants: Pix2Pix (LSGAN PatchGAN, $\lambda_{L1}=100$) and a \emph{margin-reference} input (LAB mean/std of an unfaded strip, as hidden under a frame).\\
 
-\medskip
-\noindent\textbf{M4 Super-resolution and confidence.} Real-ESRGAN x4 (own RRDBNet loader, official weights) in overlapping tiles with linear blending. The confidence map fuses four signals
+\textbf{M4 Super-resolution and confidence.} Real-ESRGAN x4 (own RRDBNet loader, official weights) in overlapping tiles with linear blending. The confidence map fuses four signals
 inside repaired holes: segmenter entropy, depth inside the hole, \emph{disagreement} between three LaMa runs (original, mirrored, rotated; CIELAB spread), and PatchGAN realness
 of the fill. Outside holes only entropy applies. Weights are fitted by non-negative least squares from signals to $|{\rm restored}-{\rm clean}|$ on validation tiles
 and scored on test tiles.
