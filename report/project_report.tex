@@ -1,6 +1,4 @@
-% CS F407 Artificial Intelligence: final project report template.
-% Limit: 2 pages, including everything except references.
-% Do not change the font size, margins or spacing.
+% CS F407 Artificial Intelligence: final project report (limit: 4 pages, everything except references).
 \documentclass[11pt,a4paper,twocolumn]{article}
 
 \usepackage[margin=2cm,columnsep=0.8cm]{geometry}
@@ -21,68 +19,159 @@
 \setlength{\parskip}{0.3ex}
 
 \newcommand{\coursename}{CS F407 Artificial Intelligence, AY 2026--27 Semester I}
-\newcommand{\teamno}{Team XX}
-\newcommand{\githuburl}{https://github.com/username/repository}
+\newcommand{\teamno}{Team MARS}
+\newcommand{\githuburl}{https://github.com/malharbhalerao/folk-restore}
 
 \begin{document}
 
 \twocolumn[{%
 \begin{center}
-  {\large\bfseries Project Title: Concise and Informative}\\[1ex]
+  {\large\bfseries folk-restore: Multi-Stage Digital Restoration of Indian Folk Paintings with Calibrated Confidence Maps}\\[1ex]
   \teamno\\
-  Member One (2022A7PS0001G), Member Two (2022A7PS0002G), Member Three (2022A7PS0003G)\\[0.5ex]
+  Malhar Bhalerao (2024A8PS1439G), Shriya Kulkarni (2024A7PS0486G), Aditya Vilas (2024A7PS0002G)\\[0.5ex]
   {\small \coursename, BITS Pilani, K.K. Birla Goa Campus}\\[1.5ex]
   \begin{minipage}{0.85\textwidth}
     \small
     \centerline{\bfseries Abstract}\vspace{0.5ex}
-    In 100--150 words: the problem, why it matters, what you did, the main result
-    (with a number, if you have one), and the main conclusion.
+    Museum folk paintings suffer cracks, paint loss, stains and fading, and no labelled damage data exist for them. We build a
+    four-stage pipeline (damage segmentation, inpainting, colour de-fading, super-resolution) trained only on a procedural damage
+    simulator, and add a per-pixel confidence map that tells a conservator which fills are speculative. A segmenter trained with
+    unlabelled design lines as hard negatives and wall-plaster damage raises union Dice on wall-style damage from 0.32 to 0.78;
+    fine-tuning Big-LaMa gains 0.7~dB over zero-shot; an inpainter-disagreement signal fitted on validation tiles predicts true
+    repair error with Spearman $\rho=0.71$ (tile level 0.94). Several expected gains did not appear (CLAHE features, a GAN
+    de-fader, a discriminator-based signal), and we report them. Real-painting results are qualitative.
   \end{minipage}
 \end{center}
 \vspace{1.5ex}
 }]
 
 \section{Introduction}
-State the problem and its motivation. Say clearly what the input and output of your system
-are, and list your contributions in one or two sentences.
+Digital restoration gives conservators a non-destructive preview of a painting's earlier state. Our input is a photograph of a damaged
+painting (Madhubani, Pattachitra, Warli, Kalamkari, or Mandawa wall paintings); the output is a restored high-resolution PNG plus a matrix
+of per-pixel confidence ($1$ = original paint or well-supported fill, $0$ = speculative). The difficulty is that there is no paired
+damaged/clean data, and a false detection makes the inpainter \emph{erase real design}. Contributions: (i) a damage simulator with
+unlabelled decoy design lines, plaster-wall damage and photographic degradations; (ii) a measured comparison of Telea, zero-shot and
+fine-tuned LaMa and diffusion inpainting; (iii) a confidence map whose fusion weights are fitted against true error; (iv) honest negative
+results on CLAHE, Pix2Pix and discriminator-based uncertainty.
 
 \section{Background and related work}
-Briefly describe the AI techniques you build on (for example, search, SAT, game playing,
-planning, probabilistic models, LLMs) and the closest existing work, with
-citations~\cite{russell2021aima}.
+We combine classical image processing (CLAHE~\cite{zuiderveld1994clahe}, black-hat morphology, Telea inpainting~\cite{telea2004}) with
+a U-Net~\cite{ronneberger2015unet}, the large-mask inpainter LaMa built on Fourier convolutions~\cite{suvorov2022lama}, latent-diffusion
+inpainting~\cite{rombach2022ldm}, conditional GANs for image translation (Pix2Pix~\cite{isola2017pix2pix}) and Real-ESRGAN super-resolution~\cite{wang2021realesrgan}. Global colour transfer~\cite{reinhard2001} is our de-fading baseline.
+Uncertainty is usually studied for classification; for generative repair we use ensemble-style disagreement and calibrate it on data where the truth is known.
 
 \section{Method}
-Describe your approach in enough detail for someone else to reproduce it. Use equations,
-pseudocode or a small figure where it helps. If an LLM is part of the method, give the
-model, how it is used (prompting, tool use, fine-tuning), and any prompts that matter.
+\textbf{M1 Segmentation.} A U-Net (ResNet-34, ImageNet weights) takes five channels (RGB, CLAHE of $L$, black-hat of $L$) and predicts three sigmoid maps
+(crack, loss, stain); loss is BCE+Dice. Training damage is synthesised on the fly (\texttt{degrade.py}): branching random-walk cracks, thresholded-noise
+flaking, tide-line stains, LAB fading, and, new in v3, \emph{(a)} unlabelled decoy strokes (vines, outlines, dotted borders) on 40\% of tiles so smooth uniform
+strokes are learnt as design and jagged branching ones as cracks, \emph{(b)} plaster flaking with ochre/brick underlayer, salt blooms and rain streaks,
+\emph{(c)} damage rendered at 0.5--2$\times$ scale, \emph{(d)} phone-photo blur/noise/JPEG/uneven light. Masks are the union of classes, closed, filtered and dilated.\\
+\textbf{M2 Inpainting.} Big-LaMa (51\,M parameters, TorchScript) is fine-tuned for 8 epochs with masked L1 (weight 10) + VGG perceptual + spectral-norm PatchGAN hinge loss
+(ramped to 0.05) on simulated-damage tiles plus random large blobs; lr $2\!\times\!10^{-5}$. We also run Stable Diffusion~1.5 inpainting (fp16, 25 steps) and always composite the original outside the mask.\\
+\textbf{M3 Colour.} A U-Net predicts a LAB residual added to the input (zero-initialised head $\Rightarrow$ identity at start), L1 loss, 15\% unfaded samples.
+Variants: Pix2Pix (LSGAN PatchGAN, $\lambda_{L1}=100$) and a \emph{margin-reference} input (LAB mean/std of an unfaded strip, as hidden under a frame).\\
+\textbf{M4 Super-resolution and confidence.} Real-ESRGAN x4 (own RRDBNet loader, official weights) in overlapping tiles with linear blending. The confidence map fuses four signals
+inside repaired holes: segmenter entropy, depth inside the hole, \emph{disagreement} between three LaMa runs (original, mirrored, rotated; CIELAB spread), and PatchGAN realness
+of the fill. Outside holes only entropy applies. Weights are fitted by non-negative least squares from signals to $|{\rm restored}-{\rm clean}|$ on validation tiles
+and scored on test tiles.
 
 \section{Experimental setup}
-Datasets or problem instances, baselines, evaluation metrics, and the hardware and software
-used.
+\textbf{Data.} 124 open-licence images after de-duplication (Kalamkari 31, Madhubani 20, Pattachitra 41, Warli 32; Wikimedia Commons, Cleveland Museum, CC0/PD), split \emph{by image}
+93/12/19 into 5{,}872/763/1{,}192 tiles of $512^2$. Fixed seeded synthetic val/test sets (200 tiles each) exist in paper style and wall style. The professor's test set (67 Mandawa wall-painting photographs,
+damaged only, no ground truth) was never trained or tuned on; a dHash check found 0 overlaps with our 135 training/demo images.
+\textbf{Metrics.} Dice (mean per tile, bootstrap 95\% CI), PSNR on the repaired region, LPIPS and SSIM on the tile, CIEDE2000 $\Delta E_{00}$, Spearman $\rho$ and AUROC for confidence vs.\ error.
+\textbf{Hardware/software.} One RTX 3050 (6\,GB), PyTorch 2.6, segmentation-models-pytorch, diffusers; all runs seeded. Code and commands: repository README.
 
 \section{Results}
-Report your main results in a table or a figure and explain what they show.
+\textbf{Segmentation (Table~\ref{tab:seg}).} The midsem model (v1) collapses on wall-style damage; v3 fixes this at a small cost on paper-style tiles. In the ablation, plain RGB input matched or beat CLAHE+black-hat (clearly so for v1), so the proposal's CLAHE step gave no measurable benefit on simulated damage.
 
 \begin{table}[h]
 \centering
 \small
 \begin{tabular}{lcc}
 \toprule
-Method & Metric 1 & Metric 2 \\
+Union Dice (95\% CI) & paper test & wall test \\
 \midrule
-Baseline & 0.00 & 0.00 \\
-Ours & 0.00 & 0.00 \\
+v1 CLAHE+black-hat & 0.83 (.81--.85) & 0.32 (.30--.36) \\
+v3 CLAHE+black-hat & 0.80 (.78--.82) & 0.78 (.75--.80) \\
+v1 RGB only (ablation) & 0.87 (.85--.88) & -- \\
+v3 RGB only (ablation) & 0.79 (.76--.81) & 0.79 (.76--.82) \\
 \bottomrule
 \end{tabular}
-\caption{Main results. Say what the metrics are and whether higher or lower is better.}
-\label{tab:results}
+\caption{Segmentation on 200 simulated tiles per set (higher is better).}
+\label{tab:seg}
 \end{table}
 
+\textbf{Inpainting (Table~\ref{tab:inp}).} Fine-tuning improves repaired-region PSNR by $+0.8$/$+0.7$\,dB (oracle/predicted masks) but LPIPS is not better. Diffusion is clearly worse on every metric (it invents plausible but different content), so we keep it only as a comparison and as a candidate uncertainty source.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lccc}
+\toprule
+Method (predicted masks) & PSNR$\uparrow$ & LPIPS$\downarrow$ & SSIM$\uparrow$ \\
+\midrule
+No restoration & 16.01 & 0.107 & 0.939 \\
+Telea & 19.87 & 0.074 & 0.944 \\
+LaMa zero-shot & 21.64 & 0.046 & 0.949 \\
+LaMa fine-tuned & 22.36 & 0.046 & 0.955 \\
+Diffusion (SD 1.5)$^\dagger$ & 19.38 & 0.062 & 0.933 \\
+\bottomrule
+\end{tabular}
+\caption{Inpainting on 100 test tiles (PSNR in the repaired region; LPIPS/SSIM on the tile). Oracle masks: Telea 19.70, zero-shot 22.97, fine-tuned 23.74\,dB. $^\dagger$First 50 tiles only (slow); on those tiles fine-tuned LaMa scores 22.56\,dB / 0.050 and Telea 20.02\,dB / 0.079.}
+\label{tab:inp}
+\end{table}
+
+\textbf{Colour (Table~\ref{tab:col}).} The learned de-fader cuts $\Delta E_{00}$ from 6.19 to 1.94, while global Reinhard transfer makes it worse. Adding a GAN \emph{hurt} (2.31) and drifted more on healthy tiles; the margin reference gave at most 0.04.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+Method & $\Delta E_{00}$ faded & $\Delta E_{00}$ healthy \\
+\midrule
+Faded input (no correction) & 6.19 & 0 \\
+Reinhard (strength 0.4--1.0) & 8.70--15.20 & -- \\
+U-Net, L1 only & \textbf{1.94} & \textbf{0.85} \\
+Pix2Pix (GAN) / + margin ref. & 2.31 / 2.41 & 2.03 / 2.00 \\
+No GAN / + margin reference & 1.96 / 1.92 & 1.32 / 1.13 \\
+\bottomrule
+\end{tabular}
+\caption{De-fading on 100 simulated faded tiles (lower is better); ``healthy'' = unfaded tiles after the model (ideal 0).}
+\label{tab:col}
+\end{table}
+
+\textbf{Confidence (Table~\ref{tab:unc}).} Disagreement between inpainting runs is by far the best predictor of true error. Our first, hand-weighted fusion (0.35 on the discriminator) was worse than disagreement alone ($\rho=0.15$); fitting weights on validation tiles fixes it.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lcc}
+\toprule
+Signal (repaired pixels, test) & Spearman $\rho$ & AUROC \\
+\midrule
+Segmenter entropy & $-0.11$ & 0.42 \\
+Depth in hole & 0.34 & 0.68 \\
+Inpainter disagreement & 0.72 & 0.84 \\
+Discriminator realness & $-0.16$ & 0.46 \\
+Fused, hand weights & 0.15 & 0.61 \\
+Fused, fitted on val & 0.71 & \textbf{0.85} \\
+\bottomrule
+\end{tabular}
+\caption{Does a signal predict the true repair error (AUROC for error $>25/255$)?}
+\label{tab:unc}
+\end{table}
+
+\textbf{Super-resolution.} On $128\!\to\!512$ px tiles Real-ESRGAN has lower PSNR/SSIM than bicubic (25.75 vs 28.27\,dB; 0.718 vs 0.773) but better LPIPS (0.261 vs 0.328): it adds plausible detail rather than recovering it. Tile seams differ from untiled output by 1.7/255 within 8\,px of a boundary.
+
+\textbf{Real paintings (Mandawa).} TBD
+
 \section{Discussion and limitations}
-Interpret the results. Where does your approach fail, and why? What would you do next?
+TBD
 
 \section{Conclusion}
-Two or three sentences summarising what you found.
+TBD
 
 \section*{Individual member contributions}
 {\small
@@ -90,9 +179,9 @@ Two or three sentences summarising what you found.
 \toprule
 Name & Contribution \\
 \midrule
-Member One & For example: problem formulation, search implementation, Sections 1 and 3. \\
-Member Two & For example: LLM pipeline, experiments, Section 5. \\
-Member Three & For example: data preparation, evaluation, Sections 4 and 6. \\
+Malhar Bhalerao & Damage simulator, CLAHE/black-hat features, segmenter v1--v3 and ablations (M1), repository structure and integration, evaluation scripts, Sections 3 and 5. \\
+Shriya Kulkarni & Inpainting (Telea vs LaMa, LaMa fine-tuning), colour models (L1 and Pix2Pix de-fader), super-resolution and confidence-map code (M2--M4), \texttt{restore.py}. \\
+Aditya Vilas & Dataset collection and curation, splits and tiling, demo set, data documentation, Section 4. \\
 \bottomrule
 \end{tabularx}}
 
@@ -100,24 +189,25 @@ Member Three & For example: data preparation, evaluation, Sections 4 and 6. \\
 \noindent All members have read this report and agree with the statement above.
 
 \section*{Generative AI disclosure}
-State which generative AI tools you used (name and version), what you used them for
-(for example, writing or debugging code, editing text, generating data), and which parts of
-the report or code they affected. State that you checked all such output and take
-responsibility for it. If you used none, write: ``No generative AI tools were used in this
-project.'' Use of an LLM as part of the method itself goes in Section~3, not here.
+We used Claude (Anthropic; Claude Sonnet 5.5 via Claude Code, and Claude in the claude.ai interface for the earlier Kaggle notebooks) to write and debug code,
+to run experiments, and to draft and edit this report. It wrote most of the scripts in the repository, and it also reviewed and merged the three members' work. We checked the code by running every stage, reproduced the midsem numbers
+before building on them, and verified each number in this report against the result files in the repository; we take responsibility for all content.
 
 \section*{Code availability}
 \noindent Code and data:\\
 \url{\githuburl}\\
-The repository must be public and must contain a README with instructions to reproduce the
-results reported here.
+The repository is public; its README gives the commands to reproduce the results reported here. Images are not redistributed (licences are in \texttt{data/sources.csv}); the professor's test set is not included.
 
 \begin{thebibliography}{9}
 \small
-\bibitem{russell2021aima}
-S.~Russell and P.~Norvig.
-\newblock \emph{Artificial Intelligence: A Modern Approach}, 4th edition.
-\newblock Pearson, 2021.
+\bibitem{zuiderveld1994clahe} K.~Zuiderveld. Contrast limited adaptive histogram equalization. \emph{Graphics Gems IV}, 1994.
+\bibitem{telea2004} A.~Telea. An image inpainting technique based on the fast marching method. \emph{J.\ Graphics Tools}, 2004.
+\bibitem{ronneberger2015unet} O.~Ronneberger, P.~Fischer, T.~Brox. U-Net: convolutional networks for biomedical image segmentation. MICCAI, 2015.
+\bibitem{suvorov2022lama} R.~Suvorov et al. Resolution-robust large mask inpainting with Fourier convolutions. WACV, 2022.
+\bibitem{rombach2022ldm} R.~Rombach et al. High-resolution image synthesis with latent diffusion models. CVPR, 2022.
+\bibitem{isola2017pix2pix} P.~Isola, J.-Y.~Zhu, T.~Zhou, A.~Efros. Image-to-image translation with conditional adversarial networks. CVPR, 2017.
+\bibitem{wang2021realesrgan} X.~Wang, L.~Xie, C.~Dong, Y.~Shan. Real-ESRGAN: training real-world blind super-resolution with pure synthetic data. ICCVW, 2021.
+\bibitem{reinhard2001} E.~Reinhard, M.~Adhikhmin, B.~Gooch, P.~Shirley. Color transfer between images. \emph{IEEE CG\&A}, 2001.
 \end{thebibliography}
 
 \end{document}
