@@ -46,7 +46,8 @@ def main():
     ap.add_argument("--ckpt", default="runs/unet_rich/best.pt")
     ap.add_argument("--lama_ft", default="runs/lama_ft/best.pt")
     ap.add_argument("--disc", default="runs/lama_ft/disc.pt")
-    ap.add_argument("--n", type=int, default=60, help="tiles for the uncertainty test")
+    ap.add_argument("--n", type=int, default=100, help="TEST tiles for the uncertainty evaluation")
+    ap.add_argument("--n_fit", type=int, default=60, help="VAL tiles used to fit the fusion weights")
     ap.add_argument("--n_sr", type=int, default=20, help="tiles for the super-resolution test")
     ap.add_argument("--n_calib", type=int, default=40, help="clean tiles for discriminator calibration (from the VAL split)")
     ap.add_argument("--err_thr", type=float, default=25.0, help="mean |RGB error| above which a repaired pixel counts as wrong")
@@ -74,58 +75,79 @@ def main():
     # ------------------------------------------------------------------ B. uncertainty vs true error
     seg, mode = load_model(a.ckpt, device)
     lama = Lama(a.lama_ft, device)
-    folder = data / "synthetic" / "test"
-    idx = list(csv.DictReader(open(folder / "index.csv")))[:a.n]
-    sig_names = ["entropy", "fill", "disagree", "disc", "fused"]
-    pool = {k: [] for k in sig_names}
-    errs, per_tile = [], []
-    for r in tqdm(idx, desc="uncertainty test"):
-        tid = r["tile_id"]
-        clean = imread_rgb(data / r["path"])
-        damaged = imread_rgb(folder / f"{tid}_damaged.png")
-        struct = imread_rgb(folder / f"{tid}_struct.png")
-        prob = segment_image(seg, damaged, mode, device)
-        mask = infill_mask(prob, 0.5, 5)
-        if mask.sum() == 0:
-            continue
-        variants = U.tta_inpaint(lama, struct, mask)
-        restored = variants[0]
-        restored = composite(struct, restored, mask)
-        sig = {"entropy": U.signal_entropy(prob), "fill": U.signal_fill(mask),
-               "disagree": U.signal_disagree(variants, mask),
-               "disc": U.signal_disc(disc_logits(D, restored, device), calib)}
-        conf, unc = U.fuse(sig, mask)
-        sig["fused"] = unc
-        err = np.abs(restored.astype(np.float32) - clean.astype(np.float32)).mean(-1)
-        sel = mask > 0
-        errs.append(err[sel])
-        for k in sig_names:
-            pool[k].append(sig[k][sel])
-        per_tile.append({"tile_id": tid, "hole_frac": float(sel.mean()), "mean_err_inside": float(err[sel].mean()),
-                         "mean_unc_inside": float(unc[sel].mean())})
-    if not errs:
-        raise SystemExit("No tile had a predicted mask; nothing to evaluate.")
-    err = np.concatenate(errs)
+    sig_names = ["entropy", "fill", "disagree", "disc"]
+
+    def collect(split, n, desc):
+        """Restore tiles of a synthetic split; return per-pixel signals/error over repaired pixels and per-tile pools."""
+        folder = data / "synthetic" / split
+        idx = list(csv.DictReader(open(folder / "index.csv")))[:n]
+        pool, errs, tiles = {k: [] for k in sig_names}, [], []
+        for r in tqdm(idx, desc=desc):
+            tid = r["tile_id"]
+            clean = imread_rgb(data / r["path"])
+            damaged = imread_rgb(folder / f"{tid}_damaged.png")
+            struct = imread_rgb(folder / f"{tid}_struct.png")
+            prob = segment_image(seg, damaged, mode, device)
+            mask = infill_mask(prob, 0.5, 5)
+            if mask.sum() == 0:
+                continue
+            variants = U.tta_inpaint(lama, struct, mask)
+            restored = composite(struct, variants[0], mask)
+            sig = {"entropy": U.signal_entropy(prob), "fill": U.signal_fill(mask),
+                   "disagree": U.signal_disagree(variants, mask),
+                   "disc": U.signal_disc(disc_logits(D, restored, device), calib)}
+            err = np.abs(restored.astype(np.float32) - clean.astype(np.float32)).mean(-1)
+            sel = mask > 0
+            errs.append(err[sel])
+            for k in sig_names:
+                pool[k].append(sig[k][sel])
+            tiles.append({"tile_id": tid, "hole_frac": float(sel.mean()), "mean_err_inside": float(err[sel].mean()),
+                          "sigs": {k: sig[k][sel] for k in sig_names}})
+        if not errs:
+            raise SystemExit("No tile had a predicted mask; nothing to evaluate.")
+        return {k: np.concatenate(v) for k, v in pool.items()}, np.concatenate(errs), tiles
+
+    # fit the fusion weights on VAL tiles, evaluate everything on TEST tiles
+    vpool, verr, _ = collect("val", a.n_fit, "fit fusion weights (val)")
+    fit = U.fit_weights(vpool, verr)
+    json.dump(fit, open(Path(a.lama_ft).with_name("fusion_weights.json"), "w"), indent=2)
+    print("fitted fusion weights:", fit)
+    pool, err, tiles = collect("test", a.n, "uncertainty test")
+
+    def fused(sig, weights, scale=None):
+        w = weights
+        if scale is None:
+            return sum(w[k] * sig[k] for k in w) / sum(w.values())
+        return np.clip(sum(w[k] * sig[k] for k in w) / scale, 0, 1)
+
+    pool["fused (hand weights)"] = fused(pool, U.WEIGHTS)
+    pool["fused (fitted on val)"] = fused(pool, fit["weights"], fit["scale"])
+    sig_rows = sig_names + ["fused (hand weights)", "fused (fitted on val)"]
     wrong = err > a.err_thr
-    print(f"\n{len(err):,} repaired pixels from {len(per_tile)} tiles; {100 * wrong.mean():.1f}% have error > {a.err_thr:.0f}")
+    print(f"\n{len(err):,} repaired pixels from {len(tiles)} tiles; {100 * wrong.mean():.1f}% have error > {a.err_thr:.0f}")
     lines = ["| Signal | Spearman rho vs error | AUROC (error > %g) | mean error, most-trusted half | mean error, least-trusted half |" % a.err_thr,
              "| --- | --- | --- | --- | --- |"]
-    for k in sig_names:
-        s = np.concatenate(pool[k])
+    for k in sig_rows:
+        s = pool[k]
         rho = spearmanr(s, err)[0] if s.std() > 0 else float("nan")
         med = np.median(s)
         lo, hi = err[s <= med].mean(), err[s > med].mean()
         lines.append(f"| {k} | {rho:.3f} | {auroc(s, wrong):.3f} | {lo:.1f} | {hi:.1f} |")
-    tile_rho = spearmanr([t["mean_unc_inside"] for t in per_tile], [t["mean_err_inside"] for t in per_tile])[0] if len(per_tile) > 2 else float("nan")
-    lines.append(f"\nTile-level Spearman rho (mean uncertainty vs mean error across tiles): {tile_rho:.3f}")
+    tile_unc = [float(fused(t["sigs"], fit["weights"], fit["scale"]).mean()) for t in tiles]
+    tile_rho = spearmanr(tile_unc, [t["mean_err_inside"] for t in tiles])[0] if len(tiles) > 2 else float("nan")
+    lines.append(f"\nFitted weights {fit['weights']} (scale {fit['scale']:.3f}). "
+                 f"Tile-level Spearman rho (mean fitted uncertainty vs mean error across tiles): {tile_rho:.3f}")
     (out / "uncertainty_eval.md").write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
+    per_tile = [{"tile_id": t["tile_id"], "hole_frac": t["hole_frac"], "mean_err_inside": t["mean_err_inside"], "mean_unc_inside": u}
+                for t, u in zip(tiles, tile_unc)]
     with open(out / "uncertainty_per_tile.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=list(per_tile[0]))
         w.writeheader()
         w.writerows(per_tile)
 
     # ------------------------------------------------------------------ C. super-resolution
+    idx = list(csv.DictReader(open(data / "synthetic" / "test" / "index.csv")))
     if a.skip_sr:
         return
     net = load_esrgan(device)

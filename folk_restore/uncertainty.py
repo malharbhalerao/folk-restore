@@ -9,7 +9,7 @@ Four signals, each scaled to [0, 1] where 1 = "speculative / do not trust":
   disc      the PatchGAN discriminator (trained during LaMa fine-tuning) scores how "real painting" a patch looks;
             patches scoring below what real patches score are suspicious
 Outside the repaired region the pixels are the original paint, so only `entropy` (a missed-damage warning) applies.
-Confidence = 1 - uncertainty. The weights below are a judgement call, not tuned; scripts/eval/uncertainty_sr.py reports how well
+Confidence = 1 - uncertainty. WEIGHTS below are the initial judgement-call weights; scripts/eval/uncertainty_sr.py fits better ones (fit_weights) on a validation split; scripts/eval/uncertainty_sr.py reports how well
 each signal (and the fusion) predicts real error, so re-weight there if you disagree.
 """
 import cv2
@@ -65,15 +65,35 @@ def calibrate_disc(disc_logit_maps):
     return {"q50": float(np.percentile(v, 50)), "q01": float(np.percentile(v, 1)), "n_values": int(v.size)}
 
 
-def fuse(signals, mask255, weights=None, smooth=1.5):
+def fit_weights(pool, err, names=("entropy", "fill", "disagree", "disc")):
+    """Non-negative least squares from per-pixel signals to the true restoration error (|RGB| / 255), on repaired pixels of a
+    VALIDATION split. Returns {'weights': {...}, 'scale': 95th percentile of the fitted error}, used by fuse()."""
+    from scipy.optimize import nnls
+    A = np.stack([pool[k] for k in names], 1).astype(np.float64)
+    w, _ = nnls(A, err.astype(np.float64) / 255.0)
+    pred = A @ w
+    return {"weights": {k: float(v) for k, v in zip(names, w)}, "scale": float(max(np.percentile(pred, 95), 1e-6))}
+
+
+def load_fusion(path):
+    """Fitted fusion weights (json from fit_weights) or None."""
+    import json
+    from pathlib import Path
+    return json.load(open(path)) if path and Path(path).exists() else None
+
+
+def fuse(signals, mask255, weights=None, smooth=1.5, scale=None):
     """signals: dict with any of entropy/fill/disagree/disc (HxW float32). Missing ones are skipped and the weights renormalised.
     Returns (confidence HxW float32 in [0,1], uncertainty HxW float32)."""
     w = dict(WEIGHTS if weights is None else weights)
     inside = (mask255 > 0).astype(np.float32)
     inside_soft = cv2.GaussianBlur(inside, (0, 0), 2.0)
     avail = [k for k in w if k in signals and signals[k] is not None]
-    wsum = sum(w[k] for k in avail) or 1.0
-    u_in = sum(w[k] * signals[k] for k in avail) / wsum
+    if scale is None:
+        wsum = sum(w[k] for k in avail) or 1.0
+        u_in = sum(w[k] * signals[k] for k in avail) / wsum
+    else:                                           # fitted weights predict error directly; scale maps it to [0, 1]
+        u_in = np.clip(sum(w[k] * signals[k] for k in avail) / scale, 0, 1)
     u_out = signals["entropy"] if signals.get("entropy") is not None else np.zeros_like(inside)
     u = inside_soft * u_in + (1 - inside_soft) * u_out
     if smooth:
