@@ -88,6 +88,9 @@ def main():
     use_amp = device == "cuda"
     scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
 
+    logf = open(run / "log.csv", "w", newline="")
+    wr = csv.writer(logf)
+    wr.writerow(["epoch", "train_loss", "val_de00_faded", "val_de00_defaded", "seconds"])
     best = 1e9
     for ep in range(1, a.epochs + 1):
         model.train()
@@ -107,6 +110,8 @@ def main():
         model.eval()
         base, got = evaluate(model, a.data, "val", a.n_val, device)
         print(f"epoch {ep:2d}/{a.epochs}  loss {tot / max(n, 1):.4f}  val dE00: faded input {base:.2f} -> de-faded {got:.2f}  ({time.time() - t0:.0f}s)")
+        wr.writerow([ep, round(tot / max(n, 1), 5), round(base, 3), round(got, 3), round(time.time() - t0)])
+        logf.flush()
         ck = {"model": model.state_dict(), "encoder": "resnet34", "epoch": ep, "val_de00": got}
         torch.save(ck, run / "last.pt")
         if got < best:
