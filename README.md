@@ -34,3 +34,6 @@ Put images in `data/raw/<style>/` and a held-out demo set in `data/real_damaged/
 `data/sources.csv`), then `bash scripts/run_all.sh`. Model weights are not in git; see Releases.
 
 Data licences are in `data/sources.csv`. The professor's Mandawa test set is never trained on and is not redistributed.
+
+## Milestones 2-4 (Kaggle code)
+The fine-tuned LaMa, Pix2Pix de-fader with margin references, tiled Real-ESRGAN, four-signal confidence map, the one-command `restore.py` CLI and the v3 wall-mural damage simulator live in [`milestones_2_4/`](milestones_2_4/) (self-contained; see its README). The note above that LaMa is not fine-tuned refers to the `folk_restore/` package only.
