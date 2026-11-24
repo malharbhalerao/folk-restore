@@ -66,4 +66,4 @@ Individual steps and flags are documented in each script's docstring.
 | M3 | Pix2Pix de-fader with protected-margin colour reference; L1-only ablation; Reinhard negative baseline | `train/defade_gan.py` |
 | M4 | tiled Real-ESRGAN; 4-signal confidence map (entropy, hole depth, inpainter disagreement, discriminator) | `eval/uncertainty_sr.py` |
 
-The professor's Mandawa test set is never trained on or tuned on, and is not redistributed.
+The Mandawa dataset provided by Prof. Tirtharaj Dash (test only) is never trained on or tuned on, and is not redistributed.

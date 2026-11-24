@@ -1,4 +1,4 @@
-"""Compose the report's qualitative figure.
+"""Compose a Mandawa qualitative figure (an optional extra; the report's Fig. 1 is built from report/assets/mid_*.png).
 
 Row 1: a synthetic test tile  (clean | damaged | Telea | LaMa fine-tuned | diffusion)  from results/<samples>/
 Rows 2-3: real Mandawa photographs (input | detected damage | restored | confidence)   from restore.py outputs.
@@ -40,6 +40,7 @@ def main():
     ap.add_argument("--restored", default="results/restored_mandawa")
     ap.add_argument("--images", default="../Dataset")
     ap.add_argument("--names", nargs="+", required=True)
+    ap.add_argument("--centers", nargs="*", default=None, help="x,y crop centre per name (default: largest detection)")
     ap.add_argument("--out", default="report/figures/qualitative.jpg")
     a = ap.parse_args()
     rows = []
@@ -47,18 +48,21 @@ def main():
     tid = a.tile or sorted(p.name[:-len("_diffusion.png")] for p in sd.glob("*_diffusion.png"))[0]
     rows.append(np.hstack([caption(fit(imread_rgb(sd / f"{tid}_{k}.png")), c) for k, c in
                            [("clean", "clean"), ("damaged", "damaged"), ("telea", "Telea"), ("lama", "LaMa fine-tuned"), ("diffusion", "diffusion")]]))
-    for n in a.names:
+    for j, n in enumerate(a.names):
         r = Path(a.restored)
         img = resize_long_side(imread_rgb(Path(a.images) / f"{n}.jpg"), 1536)
         mask = imread_rgb(r / f"{n}_mask.png")[..., 0]
+        C = min(CROP, img.shape[0], img.shape[1])
         # square crop (CROP px at working resolution) centred on the largest detected component
         cnt, lab, st, cen = cv2.connectedComponentsWithStats((mask > 0).astype(np.uint8), connectivity=8)
         k = 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA])) if cnt > 1 else 0
         cx, cy = (int(cen[k][0]), int(cen[k][1])) if cnt > 1 else (img.shape[1] // 2, img.shape[0] // 2)
-        y0 = int(np.clip(cy - CROP // 2, 0, max(0, img.shape[0] - CROP)))
-        x0 = int(np.clip(cx - CROP // 2, 0, max(0, img.shape[1] - CROP)))
-        box = (slice(y0, y0 + CROP), slice(x0, x0 + CROP))
-        big = (slice(2 * y0, 2 * (y0 + CROP)), slice(2 * x0, 2 * (x0 + CROP)))     # restored/confidence are x2
+        if a.centers:
+            cx, cy = map(int, a.centers[j].split(","))
+        y0 = int(np.clip(cy - C // 2, 0, max(0, img.shape[0] - C)))
+        x0 = int(np.clip(cx - C // 2, 0, max(0, img.shape[1] - C)))
+        box = (slice(y0, y0 + C), slice(x0, x0 + C))
+        big = (slice(2 * y0, 2 * (y0 + C)), slice(2 * x0, 2 * (x0 + C)))     # restored/confidence are x2
         ov = img.copy()
         ov[mask > 0] = (0.4 * ov[mask > 0] + 0.6 * np.array([255, 0, 0])).astype(np.uint8)
         rows.append(np.hstack([caption(fit(img[box]), "input (crop)"), caption(fit(ov[box]), "detected damage"),
