@@ -43,6 +43,17 @@ python restore.py folder/ -o out/ --margin x0,y0,x1,y1       # optional: an un-f
 Outputs per image: `_restored.png`, `_confidence.npy` (1 = trusted, 0 = speculative), `_confidence.png`, `_review.png`, `_mask.png`.
 Each stage falls back (fine-tuned LaMa → pretrained LaMa → Telea; Pix2Pix → L1 de-fader → skipped) if its checkpoint is missing.
 
+## Results (simulated test tiles; seeds fixed)
+| | Result |
+|---|---|
+| M1 segmentation, union Dice (paper / wall damage) | v1 0.83 / 0.32; **v3 0.80 / 0.78**; RGB-only ablation: v1 0.87, v3 0.79 / 0.79 (CLAHE gives no measurable gain) |
+| M2 inpainting, PSNR in repaired region, predicted masks | none 16.0; Telea 19.9; LaMa zero-shot 21.6; **LaMa fine-tuned 22.4**; Stable Diffusion 19.4 (50 tiles) |
+| M3 de-fading, CIEDE2000 (faded input 6.19) | Reinhard 8.7-15.2 (worse); **L1 U-Net 1.94**; Pix2Pix 2.31; margin reference changes it by <= 0.04 |
+| M4 confidence vs true error (Spearman / AUROC) | hand-weighted fusion 0.15 / 0.61; **fusion fitted on validation 0.71 / 0.85**; inpainter disagreement carries almost all the signal, the discriminator and segmenter entropy carry none |
+| M4 super-resolution, 128 to 512 px | Real-ESRGAN LPIPS 0.26 vs bicubic 0.33, but lower PSNR (25.8 vs 28.3 dB) |
+
+Negative results are real and reported in the paper. Details: `results/*.md`, `notebooks/validation.ipynb`.
+
 ## Reproduce
 Put images in `data/raw/<style>/` (see `docs/dataset_collection.md`, licences in `data/sources.csv`) and run `bash scripts/run_all.sh`.
 Individual steps and flags are documented in each script's docstring.

@@ -1,0 +1,16 @@
+id,A,B,C
+1,lama_ft,telea,diffusion
+2,diffusion,lama_ft,telea
+3,telea,lama_ft,diffusion
+4,telea,diffusion,lama_ft
+5,telea,lama_ft,diffusion
+6,lama_ft,telea,diffusion
+7,lama_ft,diffusion,telea
+8,lama_ft,telea,diffusion
+9,telea,lama_ft,diffusion
+10,lama_ft,diffusion,telea
+11,diffusion,lama_ft,telea
+12,lama_ft,diffusion,telea
+13,diffusion,telea,lama_ft
+14,diffusion,lama_ft,telea
+15,telea,lama_ft,diffusion

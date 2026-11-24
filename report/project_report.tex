@@ -165,13 +165,20 @@ Fused, fitted on val & 0.71 & \textbf{0.85} \\
 
 \textbf{Super-resolution.} On $128\!\to\!512$ px tiles Real-ESRGAN has lower PSNR/SSIM than bicubic (25.75 vs 28.27\,dB; 0.718 vs 0.773) but better LPIPS (0.261 vs 0.328): it adds plausible detail rather than recovering it. Tile seams differ from untiled output by 1.7/255 within 8\,px of a boundary.
 
-\textbf{Real paintings (Mandawa).} TBD
+\textbf{Real paintings (Mandawa).} We ran the full pipeline (v3 segmenter, fine-tuned LaMa, L1 de-fader at strength 0.7, Real-ESRGAN $\times2$) on all 67 photographs. The detector flags a median 1.2\% of the surface (mean 2.1\%, max 13.2\%; 26 images below 1\%, 7 above 5\%) and the mean confidence is 0.96; on the first 20 of these images the midsem model v1 flagged under 0.4\% of the surface, i.e.\ it was nearly blind to this domain. Fig.~\ref{fig:qual} shows a case where genuine edge wear is found and filled, and the confidence map marks the band where a border pattern had to be invented. \textbf{Human audit} (no ground truth exists): [[AUDIT]]
+
+\begin{figure*}[t]
+\centering
+\includegraphics[width=0.78\textwidth]{figures/qualitative.jpg}
+\caption{Top: simulated tile (clean, damaged, Telea, fine-tuned LaMa, diffusion). Bottom: Mandawa photograph, crop around the largest detection (input, detected damage, restored $\times2$, confidence; red = speculative).}
+\label{fig:qual}
+\end{figure*}
 
 \section{Discussion and limitations}
-TBD
+All quantitative claims rest on simulated damage, so they measure how well we handle \emph{our} assumptions about damage; real precision is only what the audit above shows. Observed failures: (i) painted detail is sometimes flagged (a saddle motif, small facial features) and then smoothed; (ii) LaMa fills large holes with blurry colour, while diffusion produces sharper but different content and scores worse; fine-tuning raised PSNR but not LPIPS; (iii) a GAN made colour \emph{less} accurate and less stable on healthy tiles, and a margin reference was nearly useless because the simulated fade is smooth enough for global statistics to carry the same information; real fading is not the simulator's, and photograph colours are uncalibrated, so we make no claim about real colour; (iv) the discriminator signal is near chance (AUROC 0.46): fills are hard to tell from real texture at its resolution; the confidence map is calibrated on simulated errors, and the three-pass LaMa disagreement it relies on costs $3\times$ inpainting time; (v) Real-ESRGAN adds plausible but invented texture, which conflicts with authenticity, and we upsample rather than recompute the confidence map. Next steps: label a small real set to fine-tune the segmenter, diffusion-sample disagreement as a confidence signal, and calibrated scans for colour.
 
 \section{Conclusion}
-TBD
+A segmenter trained against decoy design lines and plaster damage, a fine-tuned LaMa inpainter and an error-calibrated confidence map give a usable restoration pipeline whose uncertain regions are flagged. Simpler models won several comparisons (L1 over GAN, RGB over CLAHE, LaMa over diffusion), and without real ground truth the claims about real paintings stay qualitative and rest on a small human audit.
 
 \section*{Individual member contributions}
 {\small

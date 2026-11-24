@@ -14,7 +14,8 @@ import numpy as np
 
 from folk_restore import imread_rgb, imwrite_rgb, resize_long_side
 
-H = 300
+H = 240
+CROP = 420
 
 
 def fit(img, h=H):
@@ -49,12 +50,20 @@ def main():
     for n in a.names:
         r = Path(a.restored)
         img = resize_long_side(imread_rgb(Path(a.images) / f"{n}.jpg"), 1536)
-        mask = imread_rgb(r / f"{n}_mask.png")[..., 0] if (r / f"{n}_mask.png").exists() else None
+        mask = imread_rgb(r / f"{n}_mask.png")[..., 0]
+        # square crop (CROP px at working resolution) centred on the largest detected component
+        cnt, lab, st, cen = cv2.connectedComponentsWithStats((mask > 0).astype(np.uint8), connectivity=8)
+        k = 1 + int(np.argmax(st[1:, cv2.CC_STAT_AREA])) if cnt > 1 else 0
+        cx, cy = (int(cen[k][0]), int(cen[k][1])) if cnt > 1 else (img.shape[1] // 2, img.shape[0] // 2)
+        y0 = int(np.clip(cy - CROP // 2, 0, max(0, img.shape[0] - CROP)))
+        x0 = int(np.clip(cx - CROP // 2, 0, max(0, img.shape[1] - CROP)))
+        box = (slice(y0, y0 + CROP), slice(x0, x0 + CROP))
+        big = (slice(2 * y0, 2 * (y0 + CROP)), slice(2 * x0, 2 * (x0 + CROP)))     # restored/confidence are x2
         ov = img.copy()
         ov[mask > 0] = (0.4 * ov[mask > 0] + 0.6 * np.array([255, 0, 0])).astype(np.uint8)
-        rows.append(np.hstack([caption(fit(img), "input"), caption(fit(ov), "detected damage"),
-                               caption(fit(imread_rgb(r / f"{n}_restored.png")), "restored (x2)"),
-                               caption(fit(imread_rgb(r / f"{n}_confidence.png")), "confidence (red = speculative)")]))
+        rows.append(np.hstack([caption(fit(img[box]), "input (crop)"), caption(fit(ov[box]), "detected damage"),
+                               caption(fit(imread_rgb(r / f"{n}_restored.png")[big]), "restored (x2)"),
+                               caption(fit(imread_rgb(r / f"{n}_confidence.png")[big]), "confidence (red = speculative)")]))
     w = max(r.shape[1] for r in rows)
     imwrite_rgb(a.out, np.vstack([pad_to(r, w) for r in rows]))
     print("wrote", a.out)

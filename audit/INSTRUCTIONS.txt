@@ -1,0 +1,16 @@
+Folk-restore human audit (about 20 minutes). Work ALONE, do not discuss answers until everyone has finished.
+
+PART 1 - detections (sheets_det_0.jpg, sheets_det_1.jpg, sheets_det_2.jpg)
+Each numbered item shows a crop on the left and the same crop with the detected region outlined in red on the right.
+Write one label per id in your copy of labels_template.csv (rename it labels_<yourname>.csv):
+   damage = the outlined spot is real damage (crack, flaking, stain, missing paint)
+   design = the outlined spot is part of the painting (outline, motif, shading) and should NOT be repaired
+   unsure = cannot tell
+Zoom in if you need to.
+
+PART 2 - blind comparison (sheets_ab_0.jpg, sheets_ab_1.jpg, sheets_ab_2.jpg, or the single ab_XX.png files)
+Each row shows: the input crop, then three repaired versions labelled A, B, C (random order, different for every item).
+Pick the version that looks most like an intact, natural part of the painting (no smears, no invented content).
+Write A, B, C or same (if you cannot tell them apart) per id in ab_template.csv (rename it ab_<yourname>.csv).
+
+Send back labels_<yourname>.csv and ab_<yourname>.csv.
