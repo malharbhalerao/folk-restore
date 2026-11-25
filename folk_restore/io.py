@@ -47,10 +47,14 @@ def imwrite_gray(path, gray):
 
 
 def resize_long_side(rgb, max_side):
+    """Downsize to max_side, keeping each dimension at least one pixel."""
+    if max_side <= 0:
+        raise ValueError("max_side must be positive")
     h, w = rgb.shape[:2]
     s = max(h, w)
     if s <= max_side:
         return rgb
     f = max_side / s
-    return cv2.resize(rgb, (int(round(w * f)), int(round(h * f))), interpolation=cv2.INTER_AREA)
+    size = (max(1, int(round(w * f))), max(1, int(round(h * f))))
+    return cv2.resize(rgb, size, interpolation=cv2.INTER_AREA)
 
